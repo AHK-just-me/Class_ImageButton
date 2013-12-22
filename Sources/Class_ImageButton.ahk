@@ -1,6 +1,6 @@
 ; ======================================================================================================================
 ; Namespace:         ImageButton
-; Function:          Create images and assign them pushbuttons.
+; Function:          Create images and assign them to pushbuttons.
 ; AHK version:       1.1.13.01 (A32/U32/U64)
 ; Tested on:         Win 7 (x64)
 ; Version:           1.0.00.00/2013-12-21/just me
@@ -9,12 +9,12 @@
 ;        to get its HWND.
 ;     2. Call ImageButton.Create() passing three parameters:
 ;        HWND        -  Button's HWND.
-;        Margins     -  Distance to the button's borders in pixels.
+;        Margins     -  Distance between the image and the button's borders in pixels.
 ;                       Valid values:  0, 1, 2, 3, 4
 ;                       Default value: 0
 ;        Options*    -  variadic array containing up to 6 option arrays (see below).
 ;        ---------------------------------------------------------------------------------------------------------------
-;        The index of each option object determines the corresponding button state on which the bitmap will be shown.
+;        The index of each option array determines the corresponding button state for which the bitmap will be shown.
 ;        MSDN defines 6 states (http://msdn.microsoft.com/en-us/windows/bb775975):
 ;           PBS_NORMAL    = 1
 ;	         PBS_HOT       = 2
@@ -40,7 +40,8 @@
 ;                             -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
 ;                                Default: 0x000000 (black)
 ;        ---------------------------------------------------------------------------------------------------------------
-;        If the the button has a caption it will be drawn above the bitmap.
+;        If the button has a caption it will be drawn above the image.
+;
 ; Credits:           THX tic     for GDIP.AHK     : http://www.autohotkey.com/forum/post-198949.html
 ;                    THX tkoi    for ILBUTTON.AHK : http://www.autohotkey.com/forum/topic40468.html
 ; ======================================================================================================================

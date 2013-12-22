@@ -1,3 +1,6 @@
+# PSPad
+*.ppr
+
 # Object files
 *.o
 *.ko

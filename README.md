@@ -14,38 +14,50 @@ The class creates an image list and assigns it to the pushbutton control. Button
     
 ## How to use ##
 
-1. Create a push button (e.g. `Gui, Add, Button, vMyButton hwndHwndButton, Caption`) using the `Hwnd` option to get its HWND.
+1. Create a push button (e.g. `Gui, Add, Button, vMyButton HwndHBTN, Caption`) using the `Hwnd` option to get its HWND.  
 
-2. Call `ImageButton.Create()` passing three parameters:  
-       
-        HWND     -  Button's HWND.  
-        Margins  -  Distance between the image and the button's borders in pixels.
-	                Valid values:  0, 1, 2, 3, 4
-	                Default value: 0
-	    Options* -  variadic array containing up to 6 option arrays (see below).
-    
-	The index of each option array determines the corresponding button state for which the image will be shown (see above).  
-  
-    If you don't want the button to be 'animated' on themed GUIs, just pass one option array with index 1.  
+2. Call `ImageButton.Create()` passing two parameters: 
+     
+        HWND        -  Button's HWND.  
+        Options*    -  variadic array containing up to 6 option arrays (see below).
 
-    Each option array may contain the following values:  
-    
-        1. Background  -  mandatory for index 1, higher indices will use the value of index 1, if omitted.  
-                          Unichrome:
-                          -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
-                          Image:
-                          -  Path of an image file or HBITMAP handle
-                          3D-styled:
-                          -  Array containing three values:
-                             1. Outer color as RGB integer value (0xRRGGBB) or HTML color name ("Red").
-                             2. Inner color as RGB integer value (0xRRGGBB) or HTML color name ("Red").
-                             3. Mode: 1 = raised, 2 = horizontal gradient, 3 = vertical gradient
-        2. TextColor   -  optional, if omitted, the default color will be used for index 1,  
-                          higher indices will use the color of index 1.
-                          -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
-                             Default: 0x000000 (black)  
+	The index of each option object determines the corresponding button state on which the bitmap will be shown (see above).
 
-	If the button has a caption it will be drawn above the image.  
+	If you don't want the button to be 'animated' on themed GUIs, just pass one option object with index 1.  
+
+	Each option array may contain the following values:  
+
+        Index Value
+		1     Mode        mandatory:
+						  0  -  unicolored or bitmap
+						  1  -  vertical bicolored
+						  2  -  horizontal bicolored
+						  3  -  vertical gradient
+						  4  -  horizontal gradient
+						  5  -  vertical gradient using StartColor at both borders and
+								TargetColor at the center
+						  6  -  horizontal gradient using StartColor at both borders and 
+								TargetColor at the center
+						  7  -  'raised' style (just try out!)
+		2     StartColor  mandatory for Option[1], higher indices will inherit the value of
+						  Option[1], if omitted:
+						  -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
+						  -  Path of an image file or HBITMAP handle for Mode 0
+		3     TargetColor mandatory for Option[1] if Mode > 0, ignored if Mode = 0. Higher
+						  indcices will inherit the color of Option[1], if omitted:
+						  -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
+		4     TextColor   optional, if omitted, the default text color will be used for Option[1],
+						  higher indices will inherit the color of Option[1]:
+						  -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
+							 Default: 0x000000 (black)
+		5     Rounded     optional:
+						  -  Radius of the rounded corners in pixel
+							 Default: 0 - not rounded
+		6     GuiColor    optional, needed for rounded buttons if you've changed the GUI background color:
+						  -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
+							 Default: AHK default GUI background color
+	
+	If the the button has a caption it will be drawn above the bitmap.
 
 3. That's all!
 

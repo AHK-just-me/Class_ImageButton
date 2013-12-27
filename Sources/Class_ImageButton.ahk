@@ -1,20 +1,17 @@
 ; ======================================================================================================================
 ; Namespace:         ImageButton
 ; Function:          Create images and assign them to pushbuttons.
-; AHK version:       1.1.13.01 (A32/U32/U64)
+; Tested with:       AHK 1.1.13.01 (A32/U32/U64)
 ; Tested on:         Win 7 (x64)
 ; Version:           1.0.00.00/2013-12-21/just me
 ; How to use:
 ;     1. Create a push button (e.g. "Gui, Add, Button, vMyButton hwndHwndButton, Caption") using the 'Hwnd' option
 ;        to get its HWND.
-;     2. Call ImageButton.Create() passing three parameters:
+;     2. Call ImageButton.Create() passing two parameters:
 ;        HWND        -  Button's HWND.
-;        Margins     -  Distance between the image and the button's borders in pixels.
-;                       Valid values:  0, 1, 2, 3, 4
-;                       Default value: 0
 ;        Options*    -  variadic array containing up to 6 option arrays (see below).
 ;        ---------------------------------------------------------------------------------------------------------------
-;        The index of each option array determines the corresponding button state for which the bitmap will be shown.
+;        The index of each option object determines the corresponding button state on which the bitmap will be shown.
 ;        MSDN defines 6 states (http://msdn.microsoft.com/en-us/windows/bb775975):
 ;           PBS_NORMAL    = 1
 ;	         PBS_HOT       = 2
@@ -25,23 +22,34 @@
 ;        If you don't want the button to be 'animated' on themed GUIs, just pass one option object with index 1.
 ;        ---------------------------------------------------------------------------------------------------------------
 ;        Each option array may contain the following values:
-;           1. Background  -  mandatory for index 1, higher indices will use the value of index 1, if omitted.
-;                             Unichrome:
+;           Index Value
+;           1     Mode        mandatory:
+;                             0  -  unicolored or bitmap
+;                             1  -  vertical bicolored
+;                             2  -  horizontal bicolored
+;                             3  -  vertical gradient
+;                             4  -  horizontal gradient
+;                             5  -  vertical gradient using StartColor at both borders and TargetColor at the center
+;                             6  -  horizontal gradient using StartColor at both borders and TargetColor at the center
+;                             7  -  'raised' style
+;           2     StartColor  mandatory for Option[1], higher indices will inherit the value of Option[1], if omitted:
 ;                             -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
-;                             Bitmap:
-;                             -  Path of an image file or HBITMAP handle
-;                             3D-styled:
-;                             -  Array containing three values:
-;                                1. Outer color as RGB integer value (0xRRGGBB) or HTML color name ("Red").
-;                                2. Inner color as RGB integer value (0xRRGGBB) or HTML color name ("Red").
-;                                3. Mode: 1 = raised, 2 = horizontal gradient, 3 = vertical gradient
-;           2. TextColor   -  optional, if omitted, the default color will be used for index 1, higher indices will
-;                             use the color of index 1.
+;                             -  Path of an image file or HBITMAP handle for mode 0.
+;           3     TargetColor mandatory for Option[1] if Mode > 0, ignored if Mode = 0. Higher indcices will inherit
+;                             the color of Option[1], if omitted:
+;                             -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
+;           4     TextColor   optional, if omitted, the default text color will be used for Option[1], higher indices 
+;                             will inherit the color of Option[1]:
 ;                             -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
 ;                                Default: 0x000000 (black)
+;           5     Rounded     optional:
+;                             -  Radius of the rounded corners in pixel
+;                                Default: 0 - not rounded
+;           6     GuiColor    optional, needed for rounded buttons if you've changed the GUI background color:
+;                             -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
+;                                Default: AHK default GUI background color
 ;        ---------------------------------------------------------------------------------------------------------------
-;        If the button has a caption it will be drawn above the image.
-;
+;        If the the button has a caption it will be drawn above the bitmap.
 ; Credits:           THX tic     for GDIP.AHK     : http://www.autohotkey.com/forum/post-198949.html
 ;                    THX tkoi    for ILBUTTON.AHK : http://www.autohotkey.com/forum/topic40468.html
 ; ======================================================================================================================
@@ -49,29 +57,41 @@
 ; In no event will the authors be held liable for any damages arising from the use of this software.
 ; ======================================================================================================================
 ; ======================================================================================================================
-; CLASS CreateImageButton()
+; CLASS ImageButton()
 ; ======================================================================================================================
 Class ImageButton {
+   ; ===================================================================================================================
+   ; PUBLIC PROPERTIES =================================================================================================
+   ; ===================================================================================================================
+   Static DefGuiColor  := ""        ; default GUI color                             (read/write)
+   Static DefTxtColor := "Black"    ; default caption color                         (read/write)
+   Static LastError := ""           ; will contain the last error message, if any   (readonly)
    ; ===================================================================================================================
    ; PRIVATE PROPERTIES ================================================================================================
    ; ===================================================================================================================
    Static BitMaps := []
    Static GDIPDll := 0
    Static GDIPToken := 0
+   Static MaxOptions := 6
    ; HTML colors
    Static HTML := {BLACK: 0x000000, GRAY: 0x808080, SILVER: 0xC0C0C0, WHITE: 0xFFFFFF, MAROON: 0x800000
                  , PURPLE: 0x800080, FUCHSIA: 0xFF00FF, RED: 0xFF0000, GREEN: 0x008000, OLIVE: 0x808000
                  , YELLOW: 0xFFFF00, LIME: 0x00FF00, NAVY: 0x000080, TEAL: 0x008080, AQUA: 0x00FFFF, BLUE: 0x0000FF}
-   ; ===================================================================================================================
-   ; PUBLIC PROPERTIES =================================================================================================
-   ; ===================================================================================================================
-   Static DefTextColor := "Black"   ; default caption color                         (read/write)
-   Static LastError := ""           ; will contain the last error message, if any   (readonly)
+   ; Initialize
+   Static ClassInit := ImageButton.InitClass()
    ; ===================================================================================================================
    ; PRIVATE METHODS ===================================================================================================
    ; ===================================================================================================================
    __New(P*) {
       Return False
+   }
+   ; ===================================================================================================================
+   InitClass() {
+      ; ----------------------------------------------------------------------------------------------------------------
+      ; Get AHK's default GUI background color
+      GuiColor := DllCall("User32.dll\GetSysColor", "Int", 15, "UInt") ; COLOR_3DFACE is used by AHK as default
+      This.DefGuiColor := ((GuiColor >> 16) & 0xFF) | (GuiColor & 0x00FF00) | ((GuiColor & 0xFF) << 16)
+      Return True
    }
    ; ===================================================================================================================
    GdiplusStartup() {
@@ -95,37 +115,28 @@ Class ImageButton {
       This.GDIPDll := This.GDIPToken := 0
    }
    ; ===================================================================================================================
-   CheckOption(Index, ByRef Option) {
-      Static OBJ_BITMAP := 7
-      If (Index = 1) {
-         If !Option.HasKey(1)
-            Return This.SetError("Missing value for background in Options[" . Index . "]!")
-         If !Option.HasKey(2)
-            Option.2 := This.DefTextColor
-      }
-      If IsObject(Option.1) {
-         If (Option.1.1 = "") || (!(Option.1.1 + 0) && !This.HTML.HasKey(Option.1.1))
-            Return This.SetError("Invalid value for background 1 in Options[" . Index . "]!")
-         If (Option.1.2 = "") || (!(Option.1.2 + 0) && !This.HTML.HasKey(Option.1.2))
-            Return This.SetError("Invalid value for background 2 in Options[" . Index . "]!")
-         If (Option.1.3 = "") || !InStr("123", SubStr(Option.1.3, 1, 1))
-            Return This.SetError("Invalid value for background 3 in Options[" . Index . "]!")
-      }
-      Else If (Option.1 <> "") {
-         If !(Option.1 + 0) && !This.HTML.HasKey(Option.1) && !FileExist(Option.1)
-            Return This.SetError("Invalid value for background in Options[" . Index . "]!")
-      }
-      If (Option.2 <> "") {
-         If !(Option.2 + 0) && !This.HTML.HasKey(Option.2)
-            Return This.SetError("Invalid value for text color in Options[" . Index . "]!")
-      }
-      Return True
-   }
-   ; ===================================================================================================================
    FreeBitmaps() {
       For I, HBITMAP In This.BitMaps
          DllCall("Gdi32.dll\DeleteObject", "Ptr", HBITMAP)
       This.BitMaps := []
+   }
+   ; ===================================================================================================================
+   GetARGB(RGB) {
+      Return 0xFF000000 | ((This.HTML.HasKey(RGB) ? This.HTML[RGB] : RGB) & 0xFFFFFF)
+   }
+   ; ===================================================================================================================
+   SetRect(ByRef Rect, Left, Top, Right, Bottom) {
+      VarSetCapacity(Rect, 16, 0)
+      NumPut(Left, Rect, 0, "Int"), NumPut(Top, Rect, 4, "Int")
+      NumPut(Right, Rect, 8, "Int"), NumPut(Bottom, Rect, 12, "Int")
+      Return True
+   }
+   ; ===================================================================================================================
+   SetRectF(ByRef Rect, Left, Top, Right, Bottom) {
+      VarSetCapacity(Rect, 16, 0)
+      NumPut(Left, Rect, 0, "Float"), NumPut(Top, Rect, 4, "Float")
+      NumPut(Right, Rect, 8, "Float"), NumPut(Bottom, Rect, 12, "Float")
+      Return True
    }
    ; ===================================================================================================================
    SetError(Msg) {
@@ -151,7 +162,6 @@ Class ImageButton {
            , WM_GETFONT := 0x31
       ; ----------------------------------------------------------------------------------------------------------------
       This.LastError := ""
-      Margins := 0
       ; ----------------------------------------------------------------------------------------------------------------
       ; Check HWND
       If !DllCall("User32.dll\IsWindow", "Ptr", HWND)
@@ -160,10 +170,6 @@ Class ImageButton {
       ; Check Options
       If !(IsObject(Options)) || (Options.MinIndex() <> 1) || (Options.MaxIndex() > 6)
          Return This.SetError("Invalid parameter Options!")
-      For Index In Options {
-         If !This.CheckOption(Index, Options[Index])
-            Return False
-      }
       ; ----------------------------------------------------------------------------------------------------------------
       ; Get and check control's class and styles
       WinGetClass, BtnClass, ahk_id %HWND%
@@ -180,90 +186,148 @@ Class ImageButton {
       HFONT := DllCall("User32.dll\SendMessage", "Ptr", HWND, "UInt", WM_GETFONT, "Ptr", 0, "Ptr", 0, "Ptr")
       DC := DllCall("User32.dll\GetDC", "Ptr", HWND, "Ptr")
       DllCall("Gdi32.dll\SelectObject", "Ptr", DC, "Ptr", HFONT)
-      DllCall("Gdiplus.dll\GdipCreateFontFromDC", "Ptr", DC, "PtrP", GDIPFont)
+      DllCall("Gdiplus.dll\GdipCreateFontFromDC", "Ptr", DC, "PtrP", PFONT)
       DllCall("User32.dll\ReleaseDC", "Ptr", HWND, "Ptr", DC)
-      If !(GDIPFont)
+      If !(PFONT)
          Return This.SetError("Couldn't get button's font!")
       ; ----------------------------------------------------------------------------------------------------------------
       ; Get the button's rectangle
       VarSetCapacity(RECT, 16, 0)
       If !DllCall("User32.dll\GetWindowRect", "Ptr", HWND, "Ptr", &RECT)
          Return This.SetError("Couldn't get button's rectangle!")
-      BtnW := NumGet(RECT,  8, "Int") - NumGet(RECT, 0, "Int") - (Margins * 2)
-      BtnH := NumGet(RECT, 12, "Int") - NumGet(RECT, 4, "Int") - (Margins * 2)
+      BtnW := NumGet(RECT,  8, "Int") - NumGet(RECT, 0, "Int")
+      BtnH := NumGet(RECT, 12, "Int") - NumGet(RECT, 4, "Int")
       ; ----------------------------------------------------------------------------------------------------------------
       ; Get the button's caption
       ControlGetText, BtnCaption, , ahk_id %HWND%
       If (ErrorLevel)
          Return This.SetError("Couldn't get button's caption!")
       ; ----------------------------------------------------------------------------------------------------------------
-      ; Create the BitMap(s)
+      ; Create the bitmap(s)
       This.BitMaps := []
       For Index, Option In Options {
-         ; Check option
-         BkgColor1 := BkgColor2 := Gradient := Image := ""
-         If (Option.1 = "")
-            Option.1 := Options.1.1
-         If (Option.2 = "")
-            Option.2 := Options.1.2
-         If IsObject(Option.1) {
-            BkgColor1 := Option.1.1
-            BkgColor2 := Option.1.2
-            Gradient := SubStr(Option.1.3, 1, 1)
+         If !IsObject(Option)
+            Continue
+         BkgColor1 := BkgColor2 := TxtColor := Mode := Rounded := GuiColor := Image := ""
+         ; Replace omitted options with the values of Options.1
+         Loop, % This.MaxOptions {
+            If (Option[A_Index] = "")
+               Option[A_Index] := Options.1[A_Index]
          }
-         Else If FileExist(Option.1)
-            Image := Option.1
-         Else If (DllCall("Gdi32.dll\GetObjectType", "Ptr", Option.1, "UInt") = OBJ_BITMAP)
-            Image := Option.1
+         ; Check option values
+         Mode := SubStr(Option.1, 1 ,1)
+         If !InStr("0123456789", Mode)
+            Return This.SetError("Invalid value for Mode in Options[" . Index . "]!")
+         If (Mode = 0)
+         && (FileExist(Option.2) || (DllCall("Gdi32.dll\GetObjectType", "Ptr", Option.2, "UInt") = OBJ_BITMAP))
+            Image := Option.2
          Else {
-            BkgColor1 := Option.1
-            BkgColor2 := Option.1
-            Gradient := 0
+            If !(Option.2 + 0) && !This.HTML.HasKey(Option.2)
+               Return This.SetError("Invalid value for StartColor in Options[" . Index . "]!")
+            BkgColor1 := This.GetARGB(Option.2)
+            If (Option.3 = "")
+               Option.3 := Option.2
+            If !(Option.3 + 0) && !This.HTML.HasKey(Option.3)
+               Return This.SetError("Invalid value for TargetColor in Options[" . Index . "]!")
+            BkgColor2 := This.GetARGB(Option.3)
          }
-         If This.HTML.HasKey(BkgColor1)
-            BkgColor1 := This.HTML[BkgColor1]
-         If This.HTML.HasKey(BkgColor2)
-            BkgColor2 := This.HTML[BkgColor2]
-         TxtColor := Option.2
-         If This.HTML.HasKey(TxtColor)
-            TxtColor := This.HTML[TxtColor]
+         If (Option.4 = "")
+            Option.4 := This.DefTxtColor
+         If !(Option.4 + 0) && !This.HTML.HasKey(Option.4)
+            Return This.SetError("Invalid value for TxtColor in Options[" . Index . "]!")
+         TxtColor := This.GetARGB(Option.4)
+         Rounded := Option.5
+         If !(Rounded + 0)
+            Rounded := 0
+         If (Option.6 = "")
+            Option.6 := This.DefGuiColor
+         If !(Option.6 + 0) && !This.HTML.HasKey(Option.6)
+            Return This.SetError("Invalid value for GuiColor in Options[" . Index . "]!")
+         GuiColor := This.GetARGB(Option.6)
          ; -------------------------------------------------------------------------------------------------------------
          ; Create a GDI+ bitmap
          DllCall("Gdiplus.dll\GdipCreateBitmapFromScan0", "Int", BtnW, "Int", BtnH, "Int", 0
                , "UInt", 0x26200A, "Ptr", 0, "PtrP", PBITMAP)
-         ; Get the pointer to it's graphics
+         ; Get the pointer to its graphics
          DllCall("Gdiplus.dll\GdipGetImageGraphicsContext", "Ptr", PBITMAP, "PtrP", PGRAPHICS)
-         ; Set SmoothingMode to system default
-         DllCall("Gdiplus.dll\GdipSetSmoothingMode", "Ptr", PGRAPHICS, "UInt", 0)
-         If (Image = "") { ; Create a BitMap for the passed colors
-            ; Start and target colors
-            Color1 := 0xFF000000 | (BkgColor1 & 0x00FFFFFF)
-            Color2 := 0xFF000000 | (BkgColor2 & 0x00FFFFFF)
-            If (Color1 = Color2) { ; Create a solid brush
-               DllCall("Gdiplus.dll\GdipCreateSolidFill", "UInt", Color1, "PtrP", PBRUSH)
-            } Else { ; Create a PathGradientBrush
-               VarSetCapacity(POINTS, 4 * 8, 0)
-               NumPut(BtnW - 1, POINTS,  8, "UInt"), NumPut(BtnW - 1, POINTS, 16, "UInt")
-               NumPut(BtnH - 1, POINTS, 20, "UInt"), NumPut(BtnH - 1, POINTS, 28, "UInt")
-               DllCall("Gdiplus.dll\GdipCreatePathGradientI", "Ptr", &POINTS, "Int", 4, "Int", 0, "PtrP", PBRUSH)
-               ; Set the PresetBlend
-               VarSetCapacity(COLORS, 12, 0)
-               NumPut(Color1, COLORS, 0, "UInt"), NumPut(Color2, COLORS, 4, "UInt")
-               VarSetCapacity(RELINT, 12, 0)
-               NumPut(0.00, RELINT, 0, "Float"), NumPut(1.00, RELINT, 4, "Float")
-               DllCall("Gdiplus.dll\GdipSetPathGradientPresetBlend"
-                     , "Ptr", PBRUSH, "Ptr", &COLORS, "Ptr", &RELINT, "Int", 2)
-               ; Set the FocusScales
-               DH := BtnH / 2
-               XScale := (Gradient = 1 ? (BtnW - DH) / BtnW : Gradient = 2 ? 1 : 0)
-               YScale := (Gradient = 1 ? (BtnH - DH) / BtnH : Gradient = 3 ? 1 : 0)
-               DllCall("Gdiplus.dll\GdipSetPathGradientFocusScales", "Ptr", PBRUSH, "Float", XScale, "Float", YScale)
+         ; Quality settings
+         DllCall("Gdiplus.dll\GdipSetSmoothingMode", "Ptr", PGRAPHICS, "UInt", 4)
+         DllCall("Gdiplus.dll\GdipSetInterpolationMode", "Ptr", PGRAPHICS, "Int", 7)
+         DllCall("Gdiplus.dll\GdipSetCompositingQuality", "Ptr", PGRAPHICS, "UInt", 4)
+         DllCall("Gdiplus.dll\GdipSetRenderingOrigin", "Ptr", PGRAPHICS, "Int", 0, "Int", 0)
+         DllCall("Gdiplus.dll\GdipSetPixelOffsetMode", "Ptr", PGRAPHICS, "UInt", 4)
+         If (Image = "") { ; Create a BitMap based on the passed colors
+            DllCall("Gdiplus.dll\GdipCreatePath", "UInt", 0, "PtrP", PPATH) ; create a GraghicsPath
+            If (Rounded < 1) { ; the path is a rectangular rectangle
+               DllCall("Gdiplus.dll\GdipAddPathRectangle"
+                     , "Ptr", PPATH, "Float", 0, "Float", 0, "Float", BtnW, "Float", BtnH)
             }
-            ; Fill the button's rectangle
-            DllCall("Gdiplus.dll\GdipFillRectangleI", "Ptr", PGRAPHICS, "Ptr", PBRUSH, "Int", 0, "Int", 0
-                  , "Int", BtnW, "Int", BtnH)
-            ; Free the brush
+            Else { ; the path is a rounded rectangle
+               DllCall("Gdiplus.dll\GdipGraphicsClear", "Ptr", PGRAPHICS, "UInt", GuiColor)
+               D := (Rounded * 2), X2 := (BtnW - D), Y2 := (BtnH - D)
+               DllCall("Gdiplus.dll\GdipAddPathArc"
+                     , "Ptr", PPATH, "Float", 0, "Float", 0, "Float", D, "Float", D, "Float", 180, "Float", 90)
+               DllCall("Gdiplus.dll\GdipAddPathArc"
+                     , "Ptr", PPATH, "Float", X2, "Float", 0, "Float", D, "Float", D, "Float", 270, "Float", 90)
+               DllCall("Gdiplus.dll\GdipAddPathArc"
+                     , "Ptr", PPATH, "Float", X2, "Float", Y2, "Float", D, "Float", D, "Float", 0, "Float", 90)
+               DllCall("Gdiplus.dll\GdipAddPathArc"
+                     , "Ptr", PPATH, "Float", 0, "Float", Y2, "Float", D, "Float", D, "Float", 90, "Float", 90)
+               DllCall("Gdiplus.dll\GdipClosePathFigure", "Ptr", PPATH)
+            }
+            If (Mode = 0) { ; the background is unicolored
+               ; Create a SolidBrush
+               DllCall("Gdiplus.dll\GdipCreateSolidFill", "UInt", BkgColor1, "PtrP", PBRUSH)
+               ; Fill the path
+               DllCall("Gdiplus.dll\GdipFillPath", "Ptr", PGRAPHICS, "Ptr", PBRUSH, "Ptr", PPATH)
+            }
+            Else If (Mode = 1) || (Mode = 2) { ; the background is bicolored
+               ; Create a LineGradientBrush
+               This.SetRectF(RECTF, 0, 0, BtnW, BtnH)
+               DllCall("Gdiplus.dll\GdipCreateLineBrushFromRect", "Ptr", &RECTF
+                     , "UInt", BkgColor1, "UInt", BkgColor2, "Int", Mode & 1, "Int", 3, "PtrP", PBRUSH)
+               DllCall("Gdiplus.dll\GdipSetLineGammaCorrection", "Ptr", PBRUSH, "Int", 1)
+               ; Set up colors and positions
+               This.SetRect(COLORS, BkgColor1, BkgColor1, BkgColor2, BkgColor2) ; sorry for function misuse
+               This.SetRectF(POSITIONS, 0, 0.5, 0.5, 1) ; sorry for function misuse
+               DllCall("Gdiplus.dll\GdipSetLinePresetBlend", "Ptr", PBRUSH
+                     , "Ptr", &COLORS, "Ptr", &POSITIONS, "Int", 4)
+               ; Fill the path
+               DllCall("Gdiplus.dll\GdipFillPath", "Ptr", PGRAPHICS, "Ptr", PBRUSH, "Ptr", PPATH)
+            }
+            Else If (Mode >= 3) && (Mode <= 6) { ; the background is a gradient
+               ; Determine the brush's width/height
+               W := Mode = 6 ? BtnW / 2 : BtnW  ; horizontal
+               H := Mode = 5 ? BtnH / 2 : BtnH  ; vertical
+               ; Create a LineGradientBrush
+               This.SetRectF(RECTF, 0, 0, W, H)
+               DllCall("Gdiplus.dll\GdipCreateLineBrushFromRect", "Ptr", &RECTF
+                     , "UInt", BkgColor1, "UInt", BkgColor2, "Int", Mode & 1, "Int", 3, "PtrP", PBRUSH)
+               DllCall("Gdiplus.dll\GdipSetLineGammaCorrection", "Ptr", PBRUSH, "Int", 1)
+               ; Fill the path
+               DllCall("Gdiplus.dll\GdipFillPath", "Ptr", PGRAPHICS, "Ptr", PBRUSH, "Ptr", PPATH)
+            }
+            Else { ; raised mode
+               DllCall("Gdiplus.dll\GdipCreatePathGradientFromPath", "Ptr", PPATH, "PtrP", PBRUSH)
+               ; Set Gamma Correction
+               DllCall("Gdiplus.dll\GdipSetPathGradientGammaCorrection", "Ptr", PBRUSH, "UInt", 1)
+               ; Set surround and center colors
+               VarSetCapacity(ColorArray, 4, 0)
+               NumPut(BkgColor1, ColorArray, 0, "UInt")
+               DllCall("Gdiplus.dll\GdipSetPathGradientSurroundColorsWithCount", "Ptr", PBRUSH, "Ptr", &ColorArray
+                   , "IntP", 1)
+               DllCall("Gdiplus.dll\GdipSetPathGradientCenterColor", "Ptr", PBRUSH, "UInt", BkgColor2)
+               ; Set the FocusScales
+               FS := (BtnH < BtnW ? BtnH : BtnW) / 3
+               XScale := (BtnW - FS) / BtnW
+               YScale := (BtnH - FS) / BtnH
+               DllCall("Gdiplus.dll\GdipSetPathGradientFocusScales", "Ptr", PBRUSH, "Float", XScale, "Float", YScale)
+               ; Fill the path
+               DllCall("Gdiplus.dll\GdipFillPath", "Ptr", PGRAPHICS, "Ptr", PBRUSH, "Ptr", PPATH)
+            }
+            ; Free resources
             DllCall("Gdiplus.dll\GdipDeleteBrush", "Ptr", PBRUSH)
+            DllCall("Gdiplus.dll\GdipDeletePath", "Ptr", PPATH)
          } Else { ; Create a bitmap from HBITMAP or file
             If (Image + 0)
                DllCall("Gdiplus.dll\GdipCreateBitmapFromHBITMAP", "Ptr", Image, "Ptr", 0, "PtrP", PBM)
@@ -279,9 +343,8 @@ Class ImageButton {
          ; Draw the caption
          If (BtnCaption) {
             ; Create a StringFormat object
-            DllCall("Gdiplus.dll\GdipCreateStringFormat", "Int", 0x5404, "UInt", 0, "PtrP", HFORMAT)
+            DllCall("Gdiplus.dll\GdipStringFormatGetGenericTypographic", "PtrP", HFORMAT)
             ; Text color
-            TxtColor := 0xFF000000 | (TxtColor & 0x00FFFFFF)
             DllCall("Gdiplus.dll\GdipCreateSolidFill", "UInt", TxtColor, "PtrP", PBRUSH)
             ; Horizontal alignment
             HALIGN := (BtnStyle & BS_CENTER) = BS_CENTER ? SA_CENTER
@@ -297,25 +360,26 @@ Class ImageButton {
             ; Set render quality to system default
             DllCall("Gdiplus.dll\GdipSetTextRenderingHint", "Ptr", PGRAPHICS, "Int", 0)
             ; Set the text's rectangle
-            NumPut(0.0,  RECT,  0, "Float")
-            NumPut(0.0,  RECT,  4, "Float")
+            VarSetCapacity(RECT, 16, 0)
             NumPut(BtnW, RECT,  8, "Float")
             NumPut(BtnH, RECT, 12, "Float")
             ; Draw the text
             DllCall("Gdiplus.dll\GdipDrawString", "Ptr", PGRAPHICS, "WStr", BtnCaption, "Int", -1
-                  , "Ptr", GDIPFont, "Ptr", &RECT, "Ptr", HFORMAT, "Ptr", PBRUSH)
+                  , "Ptr", PFONT, "Ptr", &RECT, "Ptr", HFORMAT, "Ptr", PBRUSH)
          }
-         ; Create a HBITMAP handle from the bitmap
+         ; -------------------------------------------------------------------------------------------------------------
+         ; Create a HBITMAP handle from the bitmap and add it to the array
          DllCall("Gdiplus.dll\GdipCreateHBITMAPFromBitmap", "Ptr", PBITMAP, "PtrP", HBITMAP, "UInt", 0X00FFFFFF)
+         This.BitMaps[Index] := HBITMAP
          ; Free resources
          DllCall("Gdiplus.dll\GdipDisposeImage", "Ptr", PBITMAP)
          DllCall("Gdiplus.dll\GdipDeleteBrush", "Ptr", PBRUSH)
          DllCall("Gdiplus.dll\GdipDeleteStringFormat", "Ptr", HFORMAT)
          DllCall("Gdiplus.dll\GdipDeleteGraphics", "Ptr", PGRAPHICS)
-         This.BitMaps[Index] := HBITMAP
+         ; Add the bitmap to the array
       }
       ; Now free the font object
-      DllCall("Gdiplus.dll\GdipDeleteFont", "Ptr", GDIPFont)
+      DllCall("Gdiplus.dll\GdipDeleteFont", "Ptr", PFONT)
       ; ----------------------------------------------------------------------------------------------------------------
       ; Create the ImageList
       HIL := DllCall("Comctl32.dll\ImageList_Create"
@@ -339,6 +403,24 @@ Class ImageButton {
       ; ----------------------------------------------------------------------------------------------------------------
       ; All done successfully
       This.GdiplusShutdown()
+      Return True
+   }
+   ; ===================================================================================================================
+   ; Set the default GUI color
+   SetGuiColor(GuiColor) {
+      ; GuiColor     -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
+      If !(GuiColor + 0) && !This.HTML.HasKey(GuiColor)
+         Return False
+      This.DefGuiColor := (This.HTML.HasKey(GuiColor) ? This.HTML[GuiColor] : GuiColor) & 0xFFFFFF
+      Return True
+   }
+   ; ===================================================================================================================
+   ; Set the default text color
+   SetTxtColor(TxtColor) {
+      ; TxtColor     -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
+      If !(TxtColor + 0) && !This.HTML.HasKey(TxtColor)
+         Return False
+      This.DefTxtColor := (This.HTML.HasKey(TxtColor) ? This.HTML[TxtColor] : TxtColor) & 0xFFFFFF
       Return True
    }
 }

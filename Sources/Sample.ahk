@@ -1,5 +1,10 @@
 #NoEnv
-#Include Class_ImageButton.ahk
+SetBatchLines, -1
+#Include Class_ImageButton_1_1.ahk
+; ----------------------------------------------------------------------------------------------------------------------
+Gui, DummyGUI:Add, Pic, hwndHPIC, PIC1.jpg
+SendMessage, 0x0173, 0, 0, , ahk_id %HPIC% ; STM_GETIMAGE
+HPIC1 := ErrorLevel
 ; ----------------------------------------------------------------------------------------------------------------------
 ; Button states:
 ; PBS_NORMAL    = 1
@@ -9,43 +14,42 @@
 ; PBS_DEFAULTED = 5
 ; PBS_STYLUSHOT = 6 <- used only on tablet computers
 ; ----------------------------------------------------------------------------------------------------------------------
-MsgBox, Start!
-; ----------------------------------------------------------------------------------------------------------------------
 Gui, Margin, 50, 20
 Gui, Font, s10
-Gui, Color, Gray
+Gui, Color, Navy
+ImageButton.SetGuiColor("Navy")
 ; Common button --------------------------------------------------------------------------------------------------------
 Gui, Add, Button, w200, Common Button
-; Image button with different colors for states normal, hot and defaulted ----------------------------------------------
-Gui, Add, Button, vBT1 w200 hwndHBT1, Button 1
-Opt1 := [0xCF0000, "White"]                  ; normal flat background & text colors
-Opt2 := ["Red"]                              ; hot flat background color
-Opt5 := [ , "Red"]                           ; defaulted text color
+; Unicolored button with different colors for states normal, hot and defaulted -----------------------------------------
+Gui, Add, Button, vBT1 w200 hwndHBT1, Button 1`nLine 2
+Opt1 := [0, 0xCF0000, , "White", 22]               ; normal flat background & text color
+Opt2 := [ , "Red"]                                 ; hot flat background color
+Opt5 := [ , , ,"Gray"]                             ; defaulted text color -> animation
 If !ImageButton.Create(HBT1, Opt1, Opt2, , , Opt5)
    MsgBox, 0, ImageButton Error Btn1, % ImageButton.LastError
-; Image button with different 3D-style colors for states normal, hot, and pressed --------------------------------------
-Gui, Add, Button, vBT2 w200 Default hwndHBT2, Button 2
-Opt1 := [[0x404040, 0xC0C0C0, 2], "Blue"]    ; normal 3D-style background & text colors
-Opt2 := [[0x606060, 0xF0F0F0, 2], "Green"]   ; hot 3D-style background & text colors
-Opt3 := [ , "Red"]                           ; pressed text color
-If !ImageButton.Create(HBT2,Opt1, Opt2, Opt3)
+; Vertical bicolored  button with different 3D-style colors for states normal, hot, and pressed ------------------------
+Gui, Add, Button, vBT2 w200 h30 hwndHBT2, Button 2
+Opt1 := [1, 0xF0F0F0, 0xC0F0FF, "Black"]           ; normal 3D-style background & text colors
+Opt2 := {2: 0xE0E0E0, 3: 0xB0E0FF, 4: "Black"}     ; hot 3D-style background & text colors (object syntax)
+Opt3 := {4: "Red"}                                 ; pressed text color (object syntax)
+If !ImageButton.Create(HBT2, Opt1, Opt2, Opt3)
    MsgBox, 0, ImageButton Error Btn2, % ImageButton.LastError
-; Image button with different 3D-style colors for states normal, hot, and disabled -------------------------------------
+; Raised button with different 3D-style colors for states normal, hot, and disabled ------------------------------------
 Gui, Add, Button, vBT3 w200 Disabled hwndHBT3, Button 3
-Opt1 := [[0x404040, 0xC0C0C0, 3], "Yellow"]  ; normal 3D-style background & text colors
-Opt2 := [[0x606060, 0xF0F0F0, 3], 0x606000]  ; hot 3D-style background & text colors
-Opt4 := [0xA0A0A0, 0x606000]                 ; disabled flat background & text colors
-If !ImageButton.Create(HBT3, Opt1, Opt2, , Opt4)
+Opt1 := [6, 0x404040, 0xC0C0C0, "Yellow"]          ; normal 3D-style background & text colors
+Opt2 := [ , 0x606060, 0xF0F0F0, 0x606000]          ; hot 3D-style background & text colors
+Opt4 := [0, 0xA0A0A0, , 0x606000]                  ; disabled flat background & text colors
+If !ImageButton.Create(HBT3, Opt1, Opt2, "", Opt4)
    MsgBox, 0, ImageButton Error Btn3, % ImageButton.LastError
 Gui, Font
 Gui, Add, CheckBox, xp y+0 w200 gCheck vCheckBox, Enable!
 ; Image button without caption with different pictures for states normal and hot ---------------------------------------
 Gui, Add, Button, vBT4 w200 h30 hwndHBT4
-Opt1 := ["PIC1.jpg"]                         ; normal image
-Opt2 := ["PIC2.jpg"]                         ; hot image
+Opt1 := [0, HPIC1]                                 ; normal image
+Opt2 := {2:"PIC2.jpg"}                             ; hot image (object syntax)
 If !ImageButton.Create(HBT4, Opt1, Opt2)
    MsgBox, 0, ImageButton Error Btn4, % ImageButton.LastError
-GuiControl, Focus, BT2
+; GuiControl, Focus, BT2
 Gui, Show, , Image Buttons
 Return
 ; ----------------------------------------------------------------------------------------------------------------------

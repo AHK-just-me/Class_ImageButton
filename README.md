@@ -56,6 +56,10 @@ The class creates an image list and assigns it to the pushbutton control. Button
 		6     GuiColor    optional, needed for rounded buttons if you've changed the GUI background color:
 						  -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
 							 Default: AHK default GUI background color
+        7     BorderColor optional, ignored for modes 0 (bitmap) and 7, color of the border:
+                          -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
+        8     BorderWidth optional, ignored for modes 0 (bitmap) and 7, width of the border in pixels:
+                          -  Default: 1
 	
 	If the the button has a caption it will be drawn above the bitmap.
 

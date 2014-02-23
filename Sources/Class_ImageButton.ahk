@@ -1,9 +1,11 @@
 ; ======================================================================================================================
 ; Namespace:         ImageButton
 ; Function:          Create images and assign them to pushbuttons.
-; Tested with:       AHK 1.1.13.01 (A32/U32/U64)
+; Tested with:       AHK 1.1.14.03 (A32/U32/U64)
 ; Tested on:         Win 7 (x64)
-; Version:           1.0.00.00/2013-12-21/just me
+; Change log:        1.2.00.00/2014-02-23/just me - added borders
+;                    1.1.00.00/2013-12-26/just me - added rounded and bicolored buttons       
+;                    1.0.00.00/2013-12-21/just me - initial release
 ; How to use:
 ;     1. Create a push button (e.g. "Gui, Add, Button, vMyButton hwndHwndButton, Caption") using the 'Hwnd' option
 ;        to get its HWND.
@@ -48,6 +50,10 @@
 ;           6     GuiColor    optional, needed for rounded buttons if you've changed the GUI background color:
 ;                             -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
 ;                                Default: AHK default GUI background color
+;           7     BorderColor optional, ignored for modes 0 (bitmap) and 7, color of the border:
+;                             -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
+;           8     BorderWidth optional, ignored for modes 0 (bitmap) and 7, width of the border in pixels:
+;                             -  Default: 1
 ;        ---------------------------------------------------------------------------------------------------------------
 ;        If the the button has a caption it will be drawn above the bitmap.
 ; Credits:           THX tic     for GDIP.AHK     : http://www.autohotkey.com/forum/post-198949.html
@@ -72,7 +78,7 @@ Class ImageButton {
    Static BitMaps := []
    Static GDIPDll := 0
    Static GDIPToken := 0
-   Static MaxOptions := 6
+   Static MaxOptions := 8
    ; HTML colors
    Static HTML := {BLACK: 0x000000, GRAY: 0x808080, SILVER: 0xC0C0C0, WHITE: 0xFFFFFF, MAROON: 0x800000
                  , PURPLE: 0x800080, FUCHSIA: 0xFF00FF, RED: 0xFF0000, GREEN: 0x008000, OLIVE: 0x808000
@@ -125,17 +131,34 @@ Class ImageButton {
       Return 0xFF000000 | ((This.HTML.HasKey(RGB) ? This.HTML[RGB] : RGB) & 0xFFFFFF)
    }
    ; ===================================================================================================================
-   SetRect(ByRef Rect, Left, Top, Right, Bottom) {
+   PathAddRectangle(Path, X, Y, W, H) {
+      Return DllCall("Gdiplus.dll\GdipAddPathRectangle", "Ptr", Path, "Float", X, "Float", Y, "Float", W, "Float", H)
+   }
+   ; ===================================================================================================================
+   PathAddRoundedRect(Path, X1, Y1, X2, Y2, R) {
+      D := (R * 2), X2 -= D, Y2 -= D
+      DllCall("Gdiplus.dll\GdipAddPathArc"
+            , "Ptr", Path, "Float", X1, "Float", Y1, "Float", D, "Float", D, "Float", 180, "Float", 90)
+      DllCall("Gdiplus.dll\GdipAddPathArc"
+            , "Ptr", Path, "Float", X2, "Float", Y1, "Float", D, "Float", D, "Float", 270, "Float", 90)
+      DllCall("Gdiplus.dll\GdipAddPathArc"
+            , "Ptr", Path, "Float", X2, "Float", Y2, "Float", D, "Float", D, "Float", 0, "Float", 90)
+      DllCall("Gdiplus.dll\GdipAddPathArc"
+            , "Ptr", Path, "Float", X1, "Float", Y2, "Float", D, "Float", D, "Float", 90, "Float", 90)
+      Return DllCall("Gdiplus.dll\GdipClosePathFigure", "Ptr", Path)
+   }
+   ; ===================================================================================================================
+   SetRect(ByRef Rect, X1, Y1, X2, Y2) {
       VarSetCapacity(Rect, 16, 0)
-      NumPut(Left, Rect, 0, "Int"), NumPut(Top, Rect, 4, "Int")
-      NumPut(Right, Rect, 8, "Int"), NumPut(Bottom, Rect, 12, "Int")
+      NumPut(X1, Rect, 0, "Int"), NumPut(Y1, Rect, 4, "Int")
+      NumPut(X2, Rect, 8, "Int"), NumPut(Y2, Rect, 12, "Int")
       Return True
    }
    ; ===================================================================================================================
-   SetRectF(ByRef Rect, Left, Top, Right, Bottom) {
+   SetRectF(ByRef Rect, X, Y, W, H) {
       VarSetCapacity(Rect, 16, 0)
-      NumPut(Left, Rect, 0, "Float"), NumPut(Top, Rect, 4, "Float")
-      NumPut(Right, Rect, 8, "Float"), NumPut(Bottom, Rect, 12, "Float")
+      NumPut(X, Rect, 0, "Float"), NumPut(Y, Rect, 4, "Float")
+      NumPut(W, Rect, 8, "Float"), NumPut(H, Rect, 12, "Float")
       Return True
    }
    ; ===================================================================================================================
@@ -168,7 +191,7 @@ Class ImageButton {
          Return This.SetError("Invalid parameter HWND!")
       ; ----------------------------------------------------------------------------------------------------------------
       ; Check Options
-      If !(IsObject(Options)) || (Options.MinIndex() <> 1) || (Options.MaxIndex() > 6)
+      If !(IsObject(Options)) || (Options.MinIndex() <> 1) || (Options.MaxIndex() > This.MaxOptions)
          Return This.SetError("Invalid parameter Options!")
       ; ----------------------------------------------------------------------------------------------------------------
       ; Get and check control's class and styles
@@ -244,6 +267,13 @@ Class ImageButton {
          If !(Option.6 + 0) && !This.HTML.HasKey(Option.6)
             Return This.SetError("Invalid value for GuiColor in Options[" . Index . "]!")
          GuiColor := This.GetARGB(Option.6)
+         BorderColor := ""
+         If (Option.7 <> "") {
+            If !(Option.7 + 0) && !This.HTML.HasKey(Option.7)
+               Return This.SetError("Invalid value for BorderColor in Options[" . Index . "]!")
+            BorderColor := This.GetARGB(Option.7)
+         }
+         BorderWidth := Option.8 ? Option.8 : 1
          ; -------------------------------------------------------------------------------------------------------------
          ; Create a GDI+ bitmap
          DllCall("Gdiplus.dll\GdipCreateBitmapFromScan0", "Int", BtnW, "Int", BtnH, "Int", 0
@@ -256,25 +286,36 @@ Class ImageButton {
          DllCall("Gdiplus.dll\GdipSetCompositingQuality", "Ptr", PGRAPHICS, "UInt", 4)
          DllCall("Gdiplus.dll\GdipSetRenderingOrigin", "Ptr", PGRAPHICS, "Int", 0, "Int", 0)
          DllCall("Gdiplus.dll\GdipSetPixelOffsetMode", "Ptr", PGRAPHICS, "UInt", 4)
-         If (Image = "") { ; Create a BitMap based on the passed colors
-            DllCall("Gdiplus.dll\GdipCreatePath", "UInt", 0, "PtrP", PPATH) ; create a GraghicsPath
-            If (Rounded < 1) { ; the path is a rectangular rectangle
-               DllCall("Gdiplus.dll\GdipAddPathRectangle"
-                     , "Ptr", PPATH, "Float", 0, "Float", 0, "Float", BtnW, "Float", BtnH)
+         ; Clear the background
+         DllCall("Gdiplus.dll\GdipGraphicsClear", "Ptr", PGRAPHICS, "UInt", GuiColor)
+         ; Create the image
+         If (Image = "") { ; Create a BitMap based on the specified colors
+            PathX := PathY := 0, PathW := BtnW, PathH := BtnH
+            ; Create a GraphicsPath
+            DllCall("Gdiplus.dll\GdipCreatePath", "UInt", 0, "PtrP", PPATH)
+            If (Rounded < 1) ; the path is a rectangular rectangle
+               This.PathAddRectangle(PPATH, PathX, PathY, PathW, PathH)
+            Else ; the path is a rounded rectangle
+               This.PathAddRoundedRect(PPATH, PathX, PathY, PathW, PathH, Rounded)
+            ; If BorderColor and BorderWidth are specified, 'draw' the border (not for Mode 7)
+            If (BorderColor <> "") && (BorderWidth > 0) && (Mode <> 7) {
+               ; Create a SolidBrush
+               DllCall("Gdiplus.dll\GdipCreateSolidFill", "UInt", BorderColor, "PtrP", PBRUSH)
+               ; Fill the path
+               DllCall("Gdiplus.dll\GdipFillPath", "Ptr", PGRAPHICS, "Ptr", PBRUSH, "Ptr", PPATH)
+               ; Free the brush
+               DllCall("Gdiplus.dll\GdipDeleteBrush", "Ptr", PBRUSH)
+               ; Reset the path
+               DllCall("Gdiplus.dll\GdipResetPath", "Ptr", PPATH)
+               ; Add a new 'inner' path
+               PathX := PathY := BorderWidth, PathW -= BorderWidth, PathH -= BorderWidth, Rounded -= BorderWidth
+               If (Rounded < 1) ; the path is a rectangular rectangle
+                  This.PathAddRectangle(PPATH, PathX, PathY, PathW - PathX, PathH - PathY)
+               Else ; the path is a rounded rectangle
+                  This.PathAddRoundedRect(PPATH, PathX, PathY, PathW, PathH, Rounded)
             }
-            Else { ; the path is a rounded rectangle
-               DllCall("Gdiplus.dll\GdipGraphicsClear", "Ptr", PGRAPHICS, "UInt", GuiColor)
-               D := (Rounded * 2), X2 := (BtnW - D), Y2 := (BtnH - D)
-               DllCall("Gdiplus.dll\GdipAddPathArc"
-                     , "Ptr", PPATH, "Float", 0, "Float", 0, "Float", D, "Float", D, "Float", 180, "Float", 90)
-               DllCall("Gdiplus.dll\GdipAddPathArc"
-                     , "Ptr", PPATH, "Float", X2, "Float", 0, "Float", D, "Float", D, "Float", 270, "Float", 90)
-               DllCall("Gdiplus.dll\GdipAddPathArc"
-                     , "Ptr", PPATH, "Float", X2, "Float", Y2, "Float", D, "Float", D, "Float", 0, "Float", 90)
-               DllCall("Gdiplus.dll\GdipAddPathArc"
-                     , "Ptr", PPATH, "Float", 0, "Float", Y2, "Float", D, "Float", D, "Float", 90, "Float", 90)
-               DllCall("Gdiplus.dll\GdipClosePathFigure", "Ptr", PPATH)
-            }
+            PathW -= PathX
+            PathH -= PathY
             If (Mode = 0) { ; the background is unicolored
                ; Create a SolidBrush
                DllCall("Gdiplus.dll\GdipCreateSolidFill", "UInt", BkgColor1, "PtrP", PBRUSH)
@@ -283,7 +324,7 @@ Class ImageButton {
             }
             Else If (Mode = 1) || (Mode = 2) { ; the background is bicolored
                ; Create a LineGradientBrush
-               This.SetRectF(RECTF, 0, 0, BtnW, BtnH)
+               This.SetRectF(RECTF, PathX, PathY, PathW, PathH)
                DllCall("Gdiplus.dll\GdipCreateLineBrushFromRect", "Ptr", &RECTF
                      , "UInt", BkgColor1, "UInt", BkgColor2, "Int", Mode & 1, "Int", 3, "PtrP", PBRUSH)
                DllCall("Gdiplus.dll\GdipSetLineGammaCorrection", "Ptr", PBRUSH, "Int", 1)
@@ -297,10 +338,10 @@ Class ImageButton {
             }
             Else If (Mode >= 3) && (Mode <= 6) { ; the background is a gradient
                ; Determine the brush's width/height
-               W := Mode = 6 ? BtnW / 2 : BtnW  ; horizontal
-               H := Mode = 5 ? BtnH / 2 : BtnH  ; vertical
+               W := Mode = 6 ? PathW / 2 : PathW  ; horizontal
+               H := Mode = 5 ? PathH / 2 : PathH  ; vertical
                ; Create a LineGradientBrush
-               This.SetRectF(RECTF, 0, 0, W, H)
+               This.SetRectF(RECTF, PathX, PathY, W, H)
                DllCall("Gdiplus.dll\GdipCreateLineBrushFromRect", "Ptr", &RECTF
                      , "UInt", BkgColor1, "UInt", BkgColor2, "Int", Mode & 1, "Int", 3, "PtrP", PBRUSH)
                DllCall("Gdiplus.dll\GdipSetLineGammaCorrection", "Ptr", PBRUSH, "Int", 1)

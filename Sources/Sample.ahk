@@ -1,6 +1,6 @@
 #NoEnv
 SetBatchLines, -1
-#Include Class_ImageButton_1_2.ahk
+#Include Class_ImageButton.ahk
 ; ----------------------------------------------------------------------------------------------------------------------
 Gui, DummyGUI:Add, Pic, hwndHPIC, PIC1.jpg
 SendMessage, 0x0173, 0, 0, , ahk_id %HPIC% ; STM_GETIMAGE

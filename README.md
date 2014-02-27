@@ -2,6 +2,8 @@
 
 Image Buttons for AHK GUIs.
 
+To run the sample script, you have to copy PIC1.jpg and PIC2.jpg included in the \Resources folder into the script folder.
+
 ## Features ##
 The class creates an image list and assigns it to the pushbutton control. Button image lists may contain one or six images. If they contain only one image, the image will be used to draw all button states (i.e. the button won't be animated). Otherwise the images will be used to draw the appropriate six [button states](http://msdn.microsoft.com/en-us/windows/bb775975):  
 

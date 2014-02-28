@@ -3,7 +3,8 @@
 ; Function:          Create images and assign them to pushbuttons.
 ; Tested with:       AHK 1.1.14.03 (A32/U32/U64)
 ; Tested on:         Win 7 (x64)
-; Change log:        1.2.00.00/2014-02-23/just me - added borders
+; Change history:    1.3.00.00/2014-02-28/just me - added support for ARGB colors
+;                    1.2.00.00/2014-02-23/just me - added borders
 ;                    1.1.00.00/2013-12-26/just me - added rounded and bicolored buttons       
 ;                    1.0.00.00/2013-12-21/just me - initial release
 ; How to use:
@@ -35,17 +36,18 @@
 ;                             6  -  horizontal gradient using StartColor at both borders and TargetColor at the center
 ;                             7  -  'raised' style
 ;           2     StartColor  mandatory for Option[1], higher indices will inherit the value of Option[1], if omitted:
-;                             -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
+;                             -  ARGB integer value (0xAARRGGBB) or HTML color name ("Red").
 ;                             -  Path of an image file or HBITMAP handle for mode 0.
 ;           3     TargetColor mandatory for Option[1] if Mode > 0, ignored if Mode = 0. Higher indcices will inherit
 ;                             the color of Option[1], if omitted:
-;                             -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
+;                             -  ARGB integer value (0xAARRGGBB) or HTML color name ("Red").
 ;           4     TextColor   optional, if omitted, the default text color will be used for Option[1], higher indices 
 ;                             will inherit the color of Option[1]:
-;                             -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
-;                                Default: 0x000000 (black)
+;                             -  ARGB integer value (0xAARRGGBB) or HTML color name ("Red").
+;                                Default: 0xFF000000 (black)
 ;           5     Rounded     optional:
-;                             -  Radius of the rounded corners in pixel
+;                             -  Radius of the rounded corners in pixel; the letters 'H' and 'W' may be specified
+;                                also to use the half of the button's height or width respectively.
 ;                                Default: 0 - not rounded
 ;           6     GuiColor    optional, needed for rounded buttons if you've changed the GUI background color:
 ;                             -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
@@ -128,7 +130,8 @@ Class ImageButton {
    }
    ; ===================================================================================================================
    GetARGB(RGB) {
-      Return 0xFF000000 | ((This.HTML.HasKey(RGB) ? This.HTML[RGB] : RGB) & 0xFFFFFF)
+      ARGB := This.HTML.HasKey(RGB) ? This.HTML[RGB] : RGB
+      Return (ARGB & 0xFF000000) = 0 ? 0xFF000000 | ARGB : ARGB
    }
    ; ===================================================================================================================
    PathAddRectangle(Path, X, Y, W, H) {
@@ -237,10 +240,13 @@ Class ImageButton {
             If (Option[A_Index] = "")
                Option[A_Index] := Options.1[A_Index]
          }
+         ; -------------------------------------------------------------------------------------------------------------
          ; Check option values
+         ; Mode
          Mode := SubStr(Option.1, 1 ,1)
          If !InStr("0123456789", Mode)
             Return This.SetError("Invalid value for Mode in Options[" . Index . "]!")
+         ; StartColor & TargetColor
          If (Mode = 0)
          && (FileExist(Option.2) || (DllCall("Gdi32.dll\GetObjectType", "Ptr", Option.2, "UInt") = OBJ_BITMAP))
             Image := Option.2
@@ -254,25 +260,34 @@ Class ImageButton {
                Return This.SetError("Invalid value for TargetColor in Options[" . Index . "]!")
             BkgColor2 := This.GetARGB(Option.3)
          }
+         ; TextColor
          If (Option.4 = "")
             Option.4 := This.DefTxtColor
          If !(Option.4 + 0) && !This.HTML.HasKey(Option.4)
             Return This.SetError("Invalid value for TxtColor in Options[" . Index . "]!")
          TxtColor := This.GetARGB(Option.4)
+         ; Rounded
          Rounded := Option.5
+         If (Rounded = "H")
+            Rounded := BtnH * 0.5
+         If (Rounded = "W")
+            Rounded := BtnW * 0.5
          If !(Rounded + 0)
             Rounded := 0
+         ; GuiColor
          If (Option.6 = "")
             Option.6 := This.DefGuiColor
          If !(Option.6 + 0) && !This.HTML.HasKey(Option.6)
             Return This.SetError("Invalid value for GuiColor in Options[" . Index . "]!")
          GuiColor := This.GetARGB(Option.6)
+         ; BorderColor
          BorderColor := ""
          If (Option.7 <> "") {
             If !(Option.7 + 0) && !This.HTML.HasKey(Option.7)
                Return This.SetError("Invalid value for BorderColor in Options[" . Index . "]!")
-            BorderColor := This.GetARGB(Option.7)
+            BorderColor := 0xFF000000 | This.GetARGB(Option.7) ; BorderColor must be always opaque
          }
+         ; BorderWidth
          BorderWidth := Option.8 ? Option.8 : 1
          ; -------------------------------------------------------------------------------------------------------------
          ; Create a GDI+ bitmap
@@ -313,6 +328,9 @@ Class ImageButton {
                   This.PathAddRectangle(PPATH, PathX, PathY, PathW - PathX, PathH - PathY)
                Else ; the path is a rounded rectangle
                   This.PathAddRoundedRect(PPATH, PathX, PathY, PathW, PathH, Rounded)
+               ; If a BorderColor has been drawn, BkgColors must be opaque
+               BkgColor1 := 0xFF000000 | BkgColor1
+               BkgColor2 := 0xFF000000 | BkgColor2               
             }
             PathW -= PathX
             PathH -= PathY

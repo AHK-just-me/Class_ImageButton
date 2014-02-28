@@ -43,17 +43,18 @@ The class creates an image list and assigns it to the pushbutton control. Button
 						  7  -  'raised' style (just try out!)
 		2     StartColor  mandatory for Option[1], higher indices will inherit the value of
 						  Option[1], if omitted:
-						  -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
+						  -  ARGB integer value (0xAARRGGBB) or HTML color name ("Red").
 						  -  Path of an image file or HBITMAP handle for Mode 0
 		3     TargetColor mandatory for Option[1] if Mode > 0, ignored if Mode = 0. Higher
 						  indcices will inherit the color of Option[1], if omitted:
-						  -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
+						  -  ARGB integer value (0xAARRGGBB) or HTML color name ("Red").
 		4     TextColor   optional, if omitted, the default text color will be used for Option[1],
 						  higher indices will inherit the color of Option[1]:
-						  -  RGB integer value (0xRRGGBB) or HTML color name ("Red").
+						  -  ARGB integer value (0xAARRGGBB) or HTML color name ("Red").
 							 Default: 0x000000 (black)
 		5     Rounded     optional:
-						  -  Radius of the rounded corners in pixel
+						  -  Radius of the rounded corners in pixel; the letters 'H' and 'W' may be
+						     specified also to use the half of the button's height or width respectively.
 							 Default: 0 - not rounded
 		6     GuiColor    optional, needed for rounded buttons if you've changed the GUI background color:
 						  -  RGB integer value (0xRRGGBB) or HTML color name ("Red").

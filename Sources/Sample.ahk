@@ -14,32 +14,32 @@ HPIC1 := ErrorLevel
 ; PBS_DEFAULTED = 5
 ; PBS_STYLUSHOT = 6 <- used only on tablet computers
 ; ----------------------------------------------------------------------------------------------------------------------
-GuiColor := "Silver"
+GuiColor := "Blue"
 Gui, Margin, 50, 20
 Gui, Font, s10
 Gui, Color, %GuiColor%
 ImageButton.SetGuiColor(GuiColor)
 ; Common button --------------------------------------------------------------------------------------------------------
 Gui, Add, Button, w200, Common Button
-; Rounded unicolored button with different colors for states normal, hot and defaulted ---------------------------------
+; Unicolored button rounded by half of its height with different colors for states normal, hot and defaulted -----------
 Gui, Add, Button, vBT1 w200 hwndHBT1, Button 1`nLine 2
-Opt1 := [0, 0xCF0000, , "White", 22, , "Yellow", 2]         ; normal flat background & text color
+Opt1 := [0, 0x80CF0000, , "White", "H", , "Red", 4]         ; normal flat background & text color
 Opt2 := [ , "Red"]                                          ; hot flat background color
 Opt5 := [ , , ,"Gray"]                                      ; defaulted text color -> animation
 If !ImageButton.Create(HBT1, Opt1, Opt2, , , Opt5)
    MsgBox, 0, ImageButton Error Btn1, % ImageButton.LastError
 ; Vertical bicolored  button with different 3D-style colors for states normal, hot, and pressed ------------------------
 Gui, Add, Button, vBT2 w200 h30 hwndHBT2, Button 2
-Opt1 := [1, 0xF0F0F0, 0xC0F0FF, "Black", , , "Lime", 1]     ; normal background & text colors
+Opt1 := [1, 0xC0E0E0E0, 0xC0B0E0FF, 0x60000000]             ; normal background & text colors
 Opt2 := {2: 0xE0E0E0, 3: 0xB0E0FF, 4: "Black"}              ; hot background & text colors (object syntax)
 Opt3 := {4: "Red"}                                          ; pressed text color (object syntax)
 If !ImageButton.Create(HBT2, Opt1, Opt2, Opt3)
    MsgBox, 0, ImageButton Error Btn2, % ImageButton.LastError
 ; Raised button with different 3D-style colors for states normal, hot, and disabled ------------------------------------
 Gui, Add, Button, vBT3 w200 Disabled hwndHBT3, Button 3
-Opt1 := [6, 0x404040, 0xC0C0C0, "Yellow", 6, , "White", 2]  ; normal background & text colors
-Opt2 := [ , 0x606060, 0xF0F0F0, 0x606000]                   ; hot background & text colors
-Opt4 := [0, 0xA0A0A0, , 0x606000]                           ; disabled flat background & text colors
+Opt1 := [6, 0x80404040, 0xC0C0C0, "Yellow"]                 ; normal background & text colors
+Opt2 := [ , 0x80606060, 0xF0F0F0, 0x606000]                 ; hot background & text colors
+Opt4 := [0, 0xC0A0A0A0, , 0xC0606000]                       ; disabled flat background & text colors
 If !ImageButton.Create(HBT3, Opt1, Opt2, "", Opt4)
    MsgBox, 0, ImageButton Error Btn3, % ImageButton.LastError
 Gui, Font

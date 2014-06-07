@@ -1,9 +1,10 @@
-; ======================================================================================================================
+﻿; ======================================================================================================================
 ; Namespace:         ImageButton
 ; Function:          Create images and assign them to pushbuttons.
 ; Tested with:       AHK 1.1.14.03 (A32/U32/U64)
 ; Tested on:         Win 7 (x64)
-; Change history:    1.3.00.00/2014-02-28/just me - added support for ARGB colors
+; Change history:    1.4.00.00/2014-06-07/just me - fixed bug for button caption = "0", "000", etc.
+;                    1.3.00.00/2014-02-28/just me - added support for ARGB colors
 ;                    1.2.00.00/2014-02-23/just me - added borders
 ;                    1.1.00.00/2013-12-26/just me - added rounded and bicolored buttons       
 ;                    1.0.00.00/2013-12-21/just me - initial release
@@ -21,8 +22,9 @@
 ;	         PBS_PRESSED   = 3
 ;	         PBS_DISABLED  = 4
 ;	         PBS_DEFAULTED = 5
-;	         PBS_STYLUSHOT = 6 <- used only on tablet computers
+;	         PBS_STYLUSHOT = 6 <- used only on tablet computers (that's false for Windows Vista and 7, see below)
 ;        If you don't want the button to be 'animated' on themed GUIs, just pass one option object with index 1.
+;        On Windows Vista and 7 themed bottons are 'animated' using the images of states 5 and 6 after clicked.
 ;        ---------------------------------------------------------------------------------------------------------------
 ;        Each option array may contain the following values:
 ;           Index Value
@@ -400,7 +402,7 @@ Class ImageButton {
          }
          ; -------------------------------------------------------------------------------------------------------------
          ; Draw the caption
-         If (BtnCaption) {
+         If (BtnCaption <> "") {
             ; Create a StringFormat object
             DllCall("Gdiplus.dll\GdipStringFormatGetGenericTypographic", "PtrP", HFORMAT)
             ; Text color

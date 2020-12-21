@@ -1,4 +1,4 @@
-#NoEnv
+﻿#NoEnv
 SetBatchLines, -1
 #Include Class_ImageButton.ahk
 ; ----------------------------------------------------------------------------------------------------------------------
@@ -14,7 +14,7 @@ HPIC1 := ErrorLevel
 ; PBS_DEFAULTED = 5
 ; PBS_STYLUSHOT = 6 <- used only on tablet computers
 ; ----------------------------------------------------------------------------------------------------------------------
-GuiColor := "Blue"
+GuiColor := "White"
 Gui, Margin, 50, 20
 Gui, Font, s10
 Gui, Color, %GuiColor%
@@ -22,8 +22,8 @@ ImageButton.SetGuiColor(GuiColor)
 ; Common button --------------------------------------------------------------------------------------------------------
 Gui, Add, Button, w200, Common Button
 ; Unicolored button rounded by half of its height with different colors for states normal, hot and defaulted -----------
-Gui, Add, Button, vBT1 w200 hwndHBT1, Button 1`nLine 2
-Opt1 := [0, 0x80CF0000, , "White", "H", , "Red", 4]         ; normal flat background & text color
+Gui, Add, Button, vBT1 w400 h400 hwndHBT1, Button 1`nLine 2
+Opt1 := [0, 0x80CF0000, , "White", "H", , , 4] ; "Red"        ; normal flat background & text color
 Opt2 := [ , "Red"]                                          ; hot flat background color
 Opt5 := [ , , ,"Gray"]                                      ; defaulted text color -> animation
 If !ImageButton.Create(HBT1, Opt1, Opt2, , , Opt5)
@@ -63,3 +63,26 @@ Check:
    GuiControl, Enable%CheckBox%, BT3
    GuiControl, Text, CheckBox, % (CheckBox ? "Disable!" : "Enable!")
 Return
+UseGDIP(Params*) { ; Loads and initializes the Gdiplus.dll at load-time
+   ; GET_MODULE_HANDLE_EX_FLAG_PIN = 0x00000001
+   Static GdipObject := ""
+        , GdipModule := ""
+        , GdipToken  := ""
+   Static OnLoad := UseGDIP()
+   If (GdipModule = "") {
+      If !DllCall("LoadLibrary", "Str", "Gdiplus.dll", "UPtr")
+         UseGDIP_Error("The Gdiplus.dll could not be loaded!`n`nThe program will exit!")
+      If !DllCall("GetModuleHandleEx", "UInt", 0x00000001, "Str", "Gdiplus.dll", "PtrP", GdipModule, "UInt")
+         UseGDIP_Error("The Gdiplus.dll could not be loaded!`n`nThe program will exit!")
+      VarSetCapacity(SI, 24, 0), NumPut(1, SI, 0, "UInt") ; size of 64-bit structure
+      If DllCall("Gdiplus.dll\GdiplusStartup", "PtrP", GdipToken, "Ptr", &SI, "Ptr", 0)
+         UseGDIP_Error("GDI+ could not be startet!`n`nThe program will exit!")
+      GdipObject := {Base: {__Delete: Func("UseGDIP").Bind(GdipModule, GdipToken)}}
+   }
+   Else If (Params[1] = GdipModule) && (Params[2] = GdipToken)
+      DllCall("Gdiplus.dll\GdiplusShutdown", "Ptr", GdipToken)
+}
+UseGDIP_Error(ErrorMsg) {
+   MsgBox, 262160, UseGDIP, %ErrorMsg%
+   ExitApp
+}

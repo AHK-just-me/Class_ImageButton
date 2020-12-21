@@ -45,9 +45,10 @@ The class creates an image list and assigns it to the pushbutton control. Button
 						  Option[1], if omitted:
 						  -  ARGB integer value (0xAARRGGBB) or HTML color name ("Red").
 						  -  Path of an image file or HBITMAP handle for Mode 0
-		3     TargetColor mandatory for Option[1] if Mode > 0, ignored if Mode = 0. Higher
-						  indcices will inherit the color of Option[1], if omitted:
+		3     TargetColor mandatory for Option[1] if Mode > 0. Higher indcices will inherit the color of Option[1],
+						  if omitted:
 						  -  ARGB integer value (0xAARRGGBB) or HTML color name ("Red").
+						  -  String "HICON" if StartColor contains a HICON handle.
 		4     TextColor   optional, if omitted, the default text color will be used for Option[1],
 						  higher indices will inherit the color of Option[1]:
 						  -  ARGB integer value (0xAARRGGBB) or HTML color name ("Red").
